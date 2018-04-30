@@ -48,9 +48,9 @@ final class TracingServerInterceptor implements ServerInterceptor {
         : tracer.nextSpan(extracted);
 
     // If grpc propagation is enabled, make sure we refresh the server method
-    GrpcPropagation.Extra extra = GrpcPropagation.findExtra(span.context());
-    if (extra != null) {
-      extra.put(RPC_METHOD, call.getMethodDescriptor().getFullMethodName());
+    GrpcPropagation.Tags tags = GrpcPropagation.findTags(span.context());
+    if (tags != null) {
+      tags.put(RPC_METHOD, call.getMethodDescriptor().getFullMethodName());
     }
 
     span.kind(Span.Kind.SERVER);

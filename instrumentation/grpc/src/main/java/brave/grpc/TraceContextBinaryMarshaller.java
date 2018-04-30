@@ -5,6 +5,7 @@ import io.grpc.Metadata.BinaryMarshaller;
 import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.logging.Level.FINE;
 
 /**
  * This logs instead of throwing exceptions.
@@ -40,8 +41,9 @@ final class TraceContextBinaryMarshaller implements BinaryMarshaller<TraceContex
 
   @Override public TraceContext parseBytes(byte[] bytes) {
     if (bytes == null) throw new NullPointerException("bytes == null"); // programming error
-    if (bytes.length == 0 || bytes[0] != VERSION) {
-      logger.fine("Unsupported version.");
+    if (bytes.length == 0) return null;
+    if (bytes[0] != VERSION) {
+      logger.log(FINE, "Invalid input: unsupported version {0}", bytes[0]);
       return null;
     }
     if (bytes.length < FORMAT_LENGTH - 2 /* sampled field + bit is optional */) {
@@ -57,7 +59,7 @@ final class TraceContextBinaryMarshaller implements BinaryMarshaller<TraceContex
       traceId = readLong(bytes, pos + 8);
       pos += 16;
     } else {
-      logger.fine("Invalid input: expected trace ID at offset " + pos);
+      logger.log(FINE, "Invalid input: expected trace ID at offset {0}", pos);
       return null;
     }
     if (bytes[pos] == SPAN_ID_FIELD_ID) {
@@ -65,14 +67,14 @@ final class TraceContextBinaryMarshaller implements BinaryMarshaller<TraceContex
       spanId = readLong(bytes, pos);
       pos += 8;
     } else {
-      logger.fine("Invalid input: expected span ID at offset " + pos);
+      logger.log(FINE, "Invalid input: expected span ID at offset {0}", pos);
       return null;
     }
     // The trace options field is optional. However, when present, it should be valid.
     if (bytes.length > pos && bytes[pos] == TRACE_OPTION_FIELD_ID) {
       pos++;
       if (bytes.length < pos + 1) {
-        logger.fine("Invalid input: truncated");
+        logger.log(FINE, "Invalid input: truncated");
         return null;
       }
       sampled = bytes[pos] == 1;

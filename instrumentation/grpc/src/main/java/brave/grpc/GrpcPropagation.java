@@ -43,13 +43,13 @@ public final class GrpcPropagation<K> implements Propagation<K> {
   }
 
   @Nullable static String parentMethod(TraceContext context) {
-    Extra extra = findExtra(context);
-    return extra != null ? extra.parentMethod : null;
+    Tags tags = findTags(context);
+    return tags != null ? tags.parentMethod : null;
   }
 
   static final class Factory extends Propagation.Factory {
     final Propagation.Factory delegate;
-    final ExtraFactory extraFactory = new ExtraFactory();
+    final TagsFactory tagsFactory = new TagsFactory();
 
     Factory(Propagation.Factory delegate) {
       this.delegate = delegate;
@@ -69,16 +69,16 @@ public final class GrpcPropagation<K> implements Propagation<K> {
 
     @Override public TraceContext decorate(TraceContext context) {
       TraceContext result = delegate.decorate(context);
-      return extraFactory.decorate(result);
+      return tagsFactory.decorate(result);
     }
   }
 
   final Propagation<K> delegate;
-  final ExtraFactory extraFactory;
+  final TagsFactory extraFactory;
 
   GrpcPropagation(Factory factory, KeyFactory<K> keyFactory) {
     this.delegate = factory.delegate.create(keyFactory);
-    this.extraFactory = factory.extraFactory;
+    this.extraFactory = factory.tagsFactory;
   }
 
   @Override public List<K> keys() {
@@ -105,19 +105,19 @@ public final class GrpcPropagation<K> implements Propagation<K> {
     @Override public void inject(TraceContext traceContext, C carrier) {
       if (carrier instanceof Metadata) {
         ((Metadata) carrier).put(GRPC_TRACE_BIN, traceContext);
-        Extra extra = findExtra(traceContext);
-        if (extra != null) ((Metadata) carrier).put(GRPC_TAGS_BIN, extra.toMap());
+        Tags tags = findTags(traceContext);
+        if (tags != null) ((Metadata) carrier).put(GRPC_TAGS_BIN, tags.toMap());
       }
       delegate.inject(traceContext, carrier);
     }
   }
 
-  @Nullable static Extra findExtra(TraceContext traceContext) {
+  @Nullable static Tags findTags(TraceContext traceContext) {
     List<Object> extra = traceContext.extra();
     for (int i = 0, length = extra.size(); i < length; i++) {
       Object next = extra.get(i);
-      if (next instanceof Extra) {
-        return (Extra) next;
+      if (next instanceof GrpcPropagation.Tags) {
+        return (Tags) next;
       }
     }
     return null;
@@ -135,54 +135,54 @@ public final class GrpcPropagation<K> implements Propagation<K> {
     }
 
     @Override public TraceContextOrSamplingFlags extract(C carrier) {
-      Extra extra = null;
+      Tags tags = null;
       if (carrier instanceof Metadata) {
         TraceContext extractedTrace = ((Metadata) carrier).get(GRPC_TRACE_BIN);
         Map<String, String> extractedTags = ((Metadata) carrier).get(GRPC_TAGS_BIN);
         if (extractedTags != null) {
-          extra = new Extra(extractedTags, extractedTags.remove(RPC_METHOD));
+          tags = new Tags(extractedTags, extractedTags.remove(RPC_METHOD));
         }
         if (extractedTrace != null) {
-          if (extra == null) return TraceContextOrSamplingFlags.create(extractedTrace);
+          if (tags == null) return TraceContextOrSamplingFlags.create(extractedTrace);
           return TraceContextOrSamplingFlags.newBuilder()
-              .addExtra(extra)
+              .addExtra(tags)
               .context(extractedTrace)
               .build();
         }
       }
       TraceContextOrSamplingFlags result = delegate.extract(carrier);
-      if (extra == null) return result;
-      return result.toBuilder().addExtra(extra).build();
+      if (tags == null) return result;
+      return result.toBuilder().addExtra(tags).build();
     }
   }
 
-  static final class ExtraFactory extends PropagationFieldsFactory<Extra> {
+  static final class TagsFactory extends PropagationFieldsFactory<Tags> {
     @Override protected Class type() {
-      return Extra.class;
+      return Tags.class;
     }
 
-    @Override protected Extra create() {
-      return new Extra();
+    @Override protected Tags create() {
+      return new Tags();
     }
 
-    @Override protected Extra create(Extra parent) {
-      return new Extra(parent);
+    @Override protected Tags create(Tags parent) {
+      return new Tags(parent);
     }
   }
 
-  static final class Extra extends MapPropagationFields {
+  static final class Tags extends MapPropagationFields {
     final String parentMethod;
 
-    Extra() {
+    Tags() {
       parentMethod = null;
     }
 
-    Extra(Extra parent) {
+    Tags(Tags parent) {
       super(parent);
       parentMethod = null;
     }
 
-    Extra(Map<String, String> extracted, String parentMethod) {
+    Tags(Map<String, String> extracted, String parentMethod) {
       super(extracted);
       this.parentMethod = parentMethod;
     }

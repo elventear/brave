@@ -6,7 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.logging.Level.FINE;
 
 /**
  * This logs instead of throwing exceptions.
@@ -19,7 +19,9 @@ final class TagContextBinaryMarshaller implements BinaryMarshaller<Map<String, S
   static final byte[] EMPTY_BYTES = {};
 
   @Override public byte[] toBytes(Map<String, String> tagContext) {
-    checkNotNull(tagContext, "tagContext");
+    if (tagContext == null) {
+      throw new NullPointerException("tagContext == null"); // programming error
+    }
     if (tagContext.isEmpty()) return EMPTY_BYTES;
     byte[] result = new byte[sizeInBytes(tagContext)];
     Buffer bytes = new Buffer(result);
@@ -36,8 +38,9 @@ final class TagContextBinaryMarshaller implements BinaryMarshaller<Map<String, S
     if (buf == null) throw new NullPointerException("buf == null"); // programming error
     if (buf.length == 0) return Collections.emptyMap();
     Buffer bytes = new Buffer(buf);
-    if (bytes.readByte() != VERSION) {
-      logger.fine("Unsupported version.");
+    byte version = bytes.readByte();
+    if (version != VERSION) {
+      logger.log(FINE, "Invalid input: unsupported version {0}", version);
       return null;
     }
 
@@ -50,7 +53,7 @@ final class TagContextBinaryMarshaller implements BinaryMarshaller<Map<String, S
         if (val == null) break;
         result.put(key, val);
       } else {
-        logger.fine("Invalid input: expected TAG_FIELD_ID at offset " + bytes.pos);
+        logger.log(FINE, "Invalid input: expected TAG_FIELD_ID at offset {0}", bytes.pos);
         break;
       }
     }
@@ -126,7 +129,7 @@ final class TagContextBinaryMarshaller implements BinaryMarshaller<Map<String, S
     private int readVarint(byte b1) {
       int b2 = buf[pos++];
       if ((b2 & 0xf0) != 0) {
-        logger.fine("Greater than 14-bit varint at position " + pos);
+        logger.log(FINE, "Greater than 14-bit varint at position {0}", pos);
         return -1;
       }
       return b1 & 0x7f | b2 << 28;
