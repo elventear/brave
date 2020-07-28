@@ -71,7 +71,7 @@
     <!-- Note: 3.1.x requires Java 8; 3.0.20.Final is broken -->
     <resteasy.version>3.1.4.Final</resteasy.version>
     <finagle.version>18.1.0</finagle.version>
-    <log4j.version>2.10.0</log4j.version>
+    <log4j.version>2.13.3</log4j.version>
     <okhttp.version>3.9.1</okhttp.version>
     <grpc.version>1.8.0</grpc.version>
     <netty.version>4.1.19.Final</netty.version>
